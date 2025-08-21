@@ -1,0 +1,128 @@
+# ================================================================
+# GITIGNORE PARA PROYECTO WHATSAPP API
+# ================================================================
+
+# ================= DEPENDENCIAS =================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ================= ARCHIVOS DE ENTORNO =================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ================= WHATSAPP WEB.JS - MUY IMPORTANTE =================
+# Directorio de autenticación (contiene sesión de WhatsApp)
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Archivos de sesión antiguos
+RemoteAuth-*
+LocalAuth-*
+
+# ================= LOGS =================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ================= ARCHIVOS TEMPORALES =================
+.tmp/
+tmp/
+temp/
+*.tmp
+*.temp
+
+# ================= ARCHIVOS DEL SISTEMA =================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Linux
+*~
+
+# ================= IDEs Y EDITORES =================
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ================= DOCKER =================
+# No ignorar docker-compose.yml ni Dockerfile, pero sí logs
+docker-compose.override.yml
+.docker/
+
+# ================= ARCHIVOS DE RESPALDO =================
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# ================= ARCHIVOS MULTIMEDIA TEMPORALES =================
+# Archivos de WhatsApp descargados temporalmente
+downloads/
+uploads/
+media/
+attachments/
+
+# ================= CERTIFICADOS Y CLAVES =================
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+
+# ================= BASE DE DATOS =================
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# ================= ARCHIVOS DE CONFIGURACIÓN SENSIBLES =================
+config/production.json
+config/secrets.json
+
+# ================= COVERAGE Y TESTING =================
+coverage/
+.nyc_output/
+.coverage
+htmlcov/
+
+# ================= ARCHIVOS ESPECÍFICOS DEL PROYECTO =================
+# Logs personalizados
+whatsapp.log
+api.log
+error.log
+
+# Archivos de debugging
+debug/
+.debug/
