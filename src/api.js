@@ -131,27 +131,61 @@ const initializeWhatsApp = () => {
     // Evento: Mensaje recibido
     whatsappClient.on('message', async msg => {
         try {
-            // Log del mensaje recibido mostrando remitente y contenido
-            console.log(`📨 [API] Mensaje recibido de ${msg.from}: "${msg.body}"`);
+            // ================= IDENTIFICAR TIPO DE CHAT =================
+            
+            // Método 1: Verificar por el formato del ID
+            const isFromGroup = msg.from.endsWith('@g.us');
+            
+            // Método 2: Obtener información del chat (más confiable)
+            const chat = await msg.getChat();
+            const isGroupChat = chat.isGroup;
+            
+            // Log del mensaje recibido con información del tipo de chat
+            const chatType = isGroupChat ? 'GRUPO' : 'INDIVIDUAL';
+            console.log(`📨 [${chatType}] Mensaje recibido de ${msg.from}: "${msg.body}"`);
+            
+            // Si es grupo, obtener información adicional
+            if (isGroupChat) {
+                console.log(`👥 [GRUPO] Nombre: "${chat.name}"`);
+                console.log(`👤 [GRUPO] Remitente: ${msg.author || 'Desconocido'}`);
+            }
             
             // ================= RESPUESTA AUTOMÁTICA CON IA =================
             
             // Solo responder si la IA está activada y el mensaje no es de nosotros
             if (aiEnabled && !msg.fromMe) {
-                // Obtener información del contacto (nombre si está disponible)
-                const contact = await msg.getContact();
-                const senderInfo = {
-                    name: contact.pushname || contact.name || null,
-                    number: msg.from
-                };
                 
-                // Generar respuesta con la IA
-                const aiResponse = await aiBot.generateResponse(msg.body, senderInfo);
+                // Configurar diferentes comportamientos para grupos vs individuales
+                let shouldRespond = true;
                 
-                // Enviar respuesta automática
-                await msg.reply(aiResponse);
+                if (isGroupChat) {
+                    // En grupos, solo responder si mencionan al bot o usan palabras clave
+                    const mentionKeywords = ['bot hablame']; //['bot', 'asistente', 'ayuda', 'help'];
+                    const messageText = msg.body.toLowerCase();
+                    shouldRespond = mentionKeywords.some(keyword => messageText.includes(keyword));
+                    
+                    console.log(`🤖 [GRUPO] ${shouldRespond ? 'Responderá' : 'No responderá'} (keywords: ${mentionKeywords.join(', ')})`);
+                }
                 
-                console.log(`🤖 [IA] Respuesta enviada a ${msg.from}: "${aiResponse}"`);
+                if (shouldRespond) {
+                    // Obtener información del contacto (nombre si está disponible)
+                    const contact = await msg.getContact();
+                    const senderInfo = {
+                        name: contact.pushname || contact.name || null,
+                        number: msg.from,
+                        isGroup: isGroupChat,
+                        groupName: isGroupChat ? chat.name : null,
+                        author: msg.author || null // En grupos, quién envió el mensaje
+                    };
+                    
+                    // Generar respuesta con la IA
+                    const aiResponse = await aiBot.generateResponse(msg.body, senderInfo);
+                    
+                    // Enviar respuesta automática
+                    await msg.reply(aiResponse);
+                    
+                    console.log(`🤖 [${chatType}] Respuesta enviada a ${msg.from}: "${aiResponse}"`);
+                }
             }
             
         } catch (error) {
@@ -260,6 +294,117 @@ app.post('/send-message', async (req, res) => {
     }
 });
 
+// RUTA: GET /chats - Obtener chats con información de tipo
+app.get('/chats', async (req, res) => {
+    try {
+        if (!isClientReady) {
+            return res.status(503).json({
+                error: 'WhatsApp no está conectado'
+            });
+        }
+
+        const chats = await whatsappClient.getChats();
+        
+        const chatList = chats.map(chat => ({
+            id: chat.id._serialized,
+            name: chat.name,
+            isGroup: chat.isGroup,
+            type: chat.isGroup ? 'group' : 'individual',
+            participantsCount: chat.isGroup ? chat.participants?.length : 1,
+            lastMessage: chat.lastMessage ? {
+                body: chat.lastMessage.body,
+                timestamp: chat.lastMessage.timestamp,
+                from: chat.lastMessage.from,
+                fromMe: chat.lastMessage.fromMe
+            } : null
+        }));
+
+        // Separar grupos e individuales
+        const groups = chatList.filter(chat => chat.isGroup);
+        const individuals = chatList.filter(chat => !chat.isGroup);
+
+        res.json({
+            success: true,
+            summary: {
+                total: chatList.length,
+                groups: groups.length,
+                individuals: individuals.length
+            },
+            chats: chatList,
+            groups: groups,
+            individuals: individuals
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo chats:', error);
+        res.status(500).json({
+            error: 'Error interno del servidor',
+            message: error.message
+        });
+    }
+});
+
+// RUTA: GET /chat/:id - Obtener información específica de un chat
+app.get('/chat/:id', async (req, res) => {
+    try {
+        if (!isClientReady) {
+            return res.status(503).json({
+                error: 'WhatsApp no está conectado'
+            });
+        }
+
+        const chatId = req.params.id;
+        const chat = await whatsappClient.getChatById(chatId);
+        
+        if (!chat) {
+            return res.status(404).json({
+                error: 'Chat no encontrado',
+                chatId: chatId
+            });
+        }
+
+        const chatInfo = {
+            id: chat.id._serialized,
+            name: chat.name,
+            isGroup: chat.isGroup,
+            type: chat.isGroup ? 'group' : 'individual',
+            archived: chat.archived,
+            pinned: chat.pinned,
+            muteExpiration: chat.muteExpiration,
+            unreadCount: chat.unreadCount
+        };
+
+        // Información adicional para grupos
+        if (chat.isGroup) {
+            chatInfo.groupMetadata = {
+                creation: chat.groupMetadata?.creation,
+                owner: chat.groupMetadata?.owner?._serialized,
+                desc: chat.groupMetadata?.desc,
+                descOwner: chat.groupMetadata?.descOwner?._serialized,
+                descTime: chat.groupMetadata?.descTime,
+                participantsCount: chat.participants?.length || 0,
+                participants: chat.participants?.map(p => ({
+                    id: p.id._serialized,
+                    isAdmin: p.isAdmin,
+                    isSuperAdmin: p.isSuperAdmin
+                })) || []
+            };
+        }
+
+        res.json({
+            success: true,
+            chat: chatInfo
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo información del chat:', error);
+        res.status(500).json({
+            error: 'Error interno del servidor',
+            message: error.message
+        });
+    }
+});
+
 // RUTA: GET / - Documentación
 app.get('/', (req, res) => {
     res.json({
@@ -269,6 +414,8 @@ app.get('/', (req, res) => {
         endpoints: {
             'GET /status': 'Estado de la conexión y IA',
             'POST /send-message': 'Enviar mensaje { number, message }',
+            'GET /chats': 'Obtener lista de todos los chats (grupos e individuales)',
+            'GET /chat/:id': 'Obtener información específica de un chat por ID',
             'POST /ai/toggle': 'Activar/desactivar IA automática',
             'POST /ai/custom-response': 'Agregar respuestas personalizadas { category, responses }'
         },

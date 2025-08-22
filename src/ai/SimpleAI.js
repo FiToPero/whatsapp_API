@@ -52,6 +52,9 @@ class SimpleAI {
         
         // Log para debug
         console.log(`🤖 [IA] Procesando mensaje: "${message}"`);
+        if (senderInfo.isGroup) {
+            console.log(`🤖 [IA] Mensaje de grupo: "${senderInfo.groupName}"`);
+        }
         
         // Detectar intención del mensaje
         const intention = this.detectIntention(normalizedMessage);
@@ -59,10 +62,8 @@ class SimpleAI {
         // Generar respuesta basada en la intención
         let response = await this.getResponseByIntention(intention, normalizedMessage, senderInfo);
         
-        // Agregar personalización si tenemos info del remitente
-        if (senderInfo.name) {
-            response = this.personalizeResponse(response, senderInfo.name);
-        }
+        // Personalizar respuesta según el contexto
+        response = this.personalizeResponse(response, senderInfo);
         
         console.log(`🤖 [IA] Respuesta generada: "${response}"`);
         return response;
@@ -130,12 +131,28 @@ class SimpleAI {
         return responses[randomIndex];
     }
     
-    // Personalizar respuesta con el nombre del usuario
-    personalizeResponse(response, userName) {
-        // Agregar el nombre al inicio ocasionalmente
-        if (Math.random() < 0.3) { // 30% de probabilidad
-            return `${userName}, ${response.toLowerCase()}`;
+    // Personalizar respuesta con el contexto del usuario
+    personalizeResponse(response, senderInfo) {
+        const { name, isGroup, groupName } = senderInfo;
+        
+        // Si es un grupo, agregar contexto de grupo
+        if (isGroup) {
+            // 20% de probabilidad de mencionar el grupo
+            if (Math.random() < 0.2 && groupName) {
+                return `[${groupName}] ${response}`;
+            }
+            
+            // 30% de probabilidad de mencionar al usuario en grupos
+            if (Math.random() < 0.3 && name) {
+                return `@${name}, ${response.toLowerCase()}`;
+            }
+        } else {
+            // Chat individual: 30% de probabilidad de usar el nombre
+            if (Math.random() < 0.3 && name) {
+                return `${name}, ${response.toLowerCase()}`;
+            }
         }
+        
         return response;
     }
     
