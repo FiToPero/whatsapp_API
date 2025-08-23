@@ -14,6 +14,7 @@ services:
       - project
     depends_on:
       - mysql
+      - mongodb
   mysql:
     image: 'mysql/mysql-server:8.0'
     ports:
@@ -27,12 +28,25 @@ services:
     volumes:
       - 'data_mysql:/var/lib/mysql'
     networks:
-      - project 
+      - project
+  mongodb:
+    image: 'mongo'
+    environment:
+        MONGO_INITDB_ROOT_USERNAME: '${DB_MONGO_USERNAME}'
+        MONGO_INITDB_ROOT_PASSWORD: '${DB_MONGO_PASSWORD}'
+    ports:
+        - '27017:${DB_MONGO_PORT}'
+    volumes:
+        - 'data_mongodb:/data/db'
+    networks:
+        - project
 networks:
   project:
     driver: bridge
 volumes:
   data_mysql:
+    driver: local
+  data_mongodb:
     driver: local
 
 
