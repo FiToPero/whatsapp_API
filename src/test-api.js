@@ -26,7 +26,7 @@ app.get('/status', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🌐 API de prueba corriendo en http://localhost:${PORT}`);
+    console.log(`API de prueba corriendo en http://localhost:${PORT}`);
 });
 
 module.exports = app;

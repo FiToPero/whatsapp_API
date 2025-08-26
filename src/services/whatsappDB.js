@@ -42,11 +42,11 @@ class WhatsAppDBService {
             );
 
             // Log silencioso para no saturar la consola
-            // console.log(`💾 [DB] Chat guardado: ${name} (${isGroup ? 'Grupo' : 'Individual'})`);
+            // console.log(`[DB] Chat guardado: ${name} (${isGroup ? 'Grupo' : 'Individual'})`);
             return chat;
 
         } catch (error) {
-            console.error('❌ [DB] Error guardando chat:', error);
+            console.error('[DB] Error guardando chat:', error);
             throw error;
         }
     }
@@ -55,7 +55,7 @@ class WhatsAppDBService {
         try {
             return await Chat.findOne({ chatId });
         } catch (error) {
-            console.error('❌ [DB] Error obteniendo chat:', error);
+            console.error('[DB] Error obteniendo chat:', error);
             throw error;
         }
     }
@@ -76,7 +76,7 @@ class WhatsAppDBService {
 
             return chats;
         } catch (error) {
-            console.error('❌ [DB] Error obteniendo chats:', error);
+            console.error('[DB] Error obteniendo chats:', error);
             throw error;
         }
     }
@@ -129,11 +129,11 @@ class WhatsAppDBService {
             await this.updateChatStats(chatId, timestamp);
 
             // Solo mostrar log detallado para depuración si es necesario
-            // console.log(`💾 [DB] Mensaje guardado: ${chatName} - ${body.substring(0, 50)}${body.length > 50 ? '...' : ''}`);
+            // console.log(`[DB] Mensaje guardado: ${chatName} - ${body.substring(0, 50)}${body.length > 50 ? '...' : ''}`);
             return message;
 
         } catch (error) {
-            console.error('❌ [DB] Error guardando mensaje:', error);
+            console.error('[DB] Error guardando mensaje:', error);
             throw error;
         }
     }
@@ -157,12 +157,12 @@ class WhatsAppDBService {
             );
 
             if (updatedMessage) {
-                console.log(`🤖 [DB] Respuesta IA actualizada para mensaje: ${messageId}`);
+                console.log(`[DB] Respuesta IA actualizada para mensaje: ${messageId}`);
             }
 
             return updatedMessage;
         } catch (error) {
-            console.error('❌ [DB] Error actualizando respuesta IA:', error);
+            console.error('[DB] Error actualizando respuesta IA:', error);
             throw error;
         }
     }
@@ -201,7 +201,7 @@ class WhatsAppDBService {
 
             return messages;
         } catch (error) {
-            console.error('❌ [DB] Error obteniendo mensajes:', error);
+            console.error('[DB] Error obteniendo mensajes:', error);
             throw error;
         }
     }
@@ -210,7 +210,7 @@ class WhatsAppDBService {
         try {
             return await Message.searchMessages(searchTerm, options);
         } catch (error) {
-            console.error('❌ [DB] Error buscando mensajes:', error);
+            console.error('[DB] Error buscando mensajes:', error);
             throw error;
         }
     }
@@ -235,7 +235,7 @@ class WhatsAppDBService {
                 await Chat.findOneAndUpdate({ chatId }, updateData);
             }
         } catch (error) {
-            console.error('❌ [DB] Error actualizando estadísticas:', error);
+            console.error('[DB] Error actualizando estadísticas:', error);
         }
     }
 
@@ -255,7 +255,7 @@ class WhatsAppDBService {
                 stats: dbStats
             };
         } catch (error) {
-            console.error('❌ [DB] Error obteniendo estadísticas:', error);
+            console.error('[DB] Error obteniendo estadísticas:', error);
             throw error;
         }
     }
@@ -285,7 +285,7 @@ class WhatsAppDBService {
                 }
             };
         } catch (error) {
-            console.error('❌ [DB] Error obteniendo estadísticas globales:', error);
+            console.error('[DB] Error obteniendo estadísticas globales:', error);
             throw error;
         }
     }
@@ -302,10 +302,10 @@ class WhatsAppDBService {
                 'aiResponse.generated': { $ne: true } // Mantener mensajes con respuesta IA
             });
 
-            console.log(`🧹 [DB] Limpieza: ${result.deletedCount} mensajes antiguos eliminados`);
+            console.log(`[DB] Limpieza: ${result.deletedCount} mensajes antiguos eliminados`);
             return result.deletedCount;
         } catch (error) {
-            console.error('❌ [DB] Error en limpieza:', error);
+            console.error('[DB] Error en limpieza:', error);
             throw error;
         }
     }

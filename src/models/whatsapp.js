@@ -138,6 +138,19 @@ const messageSchema = new mongoose.Schema({
         responseTimestamp: Date,
         keywords: [String], // Para grupos, qué palabras clave activaron la IA
         category: String
+    },
+    // Información de multimedia descargado
+    mediaInfo: {
+        filename: { type: String, default: null },
+        originalFilename: { type: String, default: null },
+        mimetype: { type: String, default: null },
+        size: { type: Number, default: null }, // Tamaño en bytes
+        extension: { type: String, default: null }, // jpg, mp4, ogg, etc.
+        relativePath: { type: String, default: null }, // Ruta relativa desde /app/downloads
+        fullPath: { type: String, default: null }, // Ruta completa del archivo
+        downloadUrl: { type: String, default: null }, // URL para acceder via API
+        downloadedAt: { type: Date, default: null },
+        downloadSuccess: { type: Boolean, default: false }
     }
 }, {
     timestamps: true

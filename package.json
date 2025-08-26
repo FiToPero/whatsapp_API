@@ -4,9 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "api": "node src/api-simple.js",
-    "api-full": "node src/api.js",
+    "api-simple": "node src/api-simple.js",
+    "api": "node src/api.js",
     "dev": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -124,6 +124,7 @@ const initializeWhatsApp = () => {
 
     // Evento: Se genera un código QR para autenticación
     whatsappClient.on('qr', qr => {
+        console.log('Código QR generado. Escanea con tu WhatsApp:');
         // Imprime el código QR como texto (para debug, no se ve como QR visual)
         console.log(qr);
     });
@@ -131,10 +132,13 @@ const initializeWhatsApp = () => {
     // Evento: Cliente listo para usar (autenticado y conectado)
     whatsappClient.on('ready', async () => {
         console.log('¡Cliente de WhatsApp API listo!');
+        // Cambiar estado global a conectado
         isClientReady = true;
         
         // Sincronizar chats con MongoDB si está conectado (sin bloquear)
-        if (isMongoConnected) {            
+        if (isMongoConnected) {
+            console.log('Iniciando sincronización de chats con MongoDB...');
+            
             // Ejecutar sincronización en background
             setTimeout(async () => {
                 try {
@@ -205,242 +209,242 @@ const initializeWhatsApp = () => {
     });
 
     // Evento: Mensaje recibido
-    whatsappClient.on('message', async msg => {
-        try {
-            // ================= IDENTIFICAR TIPO DE CHAT =================
+    // whatsappClient.on('message', async msg => {
+    //     try {
+    //         // ================= IDENTIFICAR TIPO DE CHAT =================
             
-            // Método 1: Verificar por el formato del ID
-            const isFromGroup = msg.from.endsWith('@g.us');
+    //         // Método 1: Verificar por el formato del ID
+    //         const isFromGroup = msg.from.endsWith('@g.us');
             
-            // Método 2: Obtener información del chat (más confiable)
-            const chat = await msg.getChat();
-            const isGroupChat = chat.isGroup;
+    //         // Método 2: Obtener información del chat (más confiable)
+    //         const chat = await msg.getChat();
+    //         const isGroupChat = chat.isGroup;
             
-            // Log del mensaje recibido con información del tipo de chat
-            const chatType = isGroupChat ? 'GRUPO' : 'INDIVIDUAL';
-            console.log(`[${chatType}] Mensaje recibido de ${msg.from}: "${msg.body}"`);
+    //         // Log del mensaje recibido con información del tipo de chat
+    //         const chatType = isGroupChat ? 'GRUPO' : 'INDIVIDUAL';
+    //         console.log(`[${chatType}] Mensaje recibido de ${msg.from}: "${msg.body}"`);
             
-            // Si es grupo, obtener información adicional
-            if (isGroupChat) {
-                console.log(`[GRUPO] Nombre: "${chat.name}"`);
-                console.log(`[GRUPO] Remitente: ${msg.author || 'Desconocido'}`);
-            }
+    //         // Si es grupo, obtener información adicional
+    //         if (isGroupChat) {
+    //             console.log(`[GRUPO] Nombre: "${chat.name}"`);
+    //             console.log(`[GRUPO] Remitente: ${msg.author || 'Desconocido'}`);
+    //         }
             
-            // ================= GUARDAR EN MONGODB =================
+    //         // ================= GUARDAR EN MONGODB =================
             
-            let mediaInfo = null;
+    //         let mediaInfo = null;
             
-            // ================= DESCARGA DE MULTIMEDIA =================
+    //         // ================= DESCARGA DE MULTIMEDIA =================
             
-            if (msg.hasMedia) {
-                try {
-                    console.log(`[MULTIMEDIA] Descargando ${msg.type} de ${chat.name}...`);
+    //         if (msg.hasMedia) {
+    //             try {
+    //                 console.log(`[MULTIMEDIA] Descargando ${msg.type} de ${chat.name}...`);
                     
-                    // Descargar el archivo multimedia
-                    const media = await msg.downloadMedia();
+    //                 // Descargar el archivo multimedia
+    //                 const media = await msg.downloadMedia();
                     
-                    if (media && media.data) {
-                        // Determinar extensión y carpeta según el tipo de archivo
-                        let extension = 'unknown';
-                        let folder = 'documents';
+    //                 if (media && media.data) {
+    //                     // Determinar extensión y carpeta según el tipo de archivo
+    //                     let extension = 'unknown';
+    //                     let folder = 'documents';
                         
-                        switch (msg.type) {
-                            case 'image':
-                                extension = media.mimetype?.includes('png') ? 'png' : 'jpg';
-                                folder = 'images';
-                                break;
-                            case 'audio':
-                            case 'ptt': // Push to Talk (nota de voz)
-                                extension = media.mimetype?.includes('mpeg') ? 'mp3' : 'ogg';
-                                folder = 'audios';
-                                break;
-                            case 'video':
-                                extension = media.mimetype?.includes('quicktime') ? 'mov' : 'mp4';
-                                folder = 'videos';
-                                break;
-                            case 'document':
-                                extension = media.filename ? 
-                                    path.extname(media.filename).substring(1) || 'pdf' : 'pdf';
-                                folder = 'documents';
-                                break;
-                            case 'sticker':
-                                extension = 'webp';
-                                folder = 'stickers';
-                                break;
-                            default:
-                                extension = 'bin';
-                                folder = 'documents';
-                        }
+    //                     switch (msg.type) {
+    //                         case 'image':
+    //                             extension = media.mimetype?.includes('png') ? 'png' : 'jpg';
+    //                             folder = 'images';
+    //                             break;
+    //                         case 'audio':
+    //                         case 'ptt': // Push to Talk (nota de voz)
+    //                             extension = media.mimetype?.includes('mpeg') ? 'mp3' : 'ogg';
+    //                             folder = 'audios';
+    //                             break;
+    //                         case 'video':
+    //                             extension = media.mimetype?.includes('quicktime') ? 'mov' : 'mp4';
+    //                             folder = 'videos';
+    //                             break;
+    //                         case 'document':
+    //                             extension = media.filename ? 
+    //                                 path.extname(media.filename).substring(1) || 'pdf' : 'pdf';
+    //                             folder = 'documents';
+    //                             break;
+    //                         case 'sticker':
+    //                             extension = 'webp';
+    //                             folder = 'stickers';
+    //                             break;
+    //                         default:
+    //                             extension = 'bin';
+    //                             folder = 'documents';
+    //                     }
                         
-                        // Crear nombre único para el archivo
-                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                        const chatId = msg.from.replace(/@c\.us|@g\.us/g, '');
-                        const messageId = msg.id._serialized.split('_')[0];
-                        const fileName = `${chatId}_${timestamp}_${messageId}.${extension}`;
+    //                     // Crear nombre único para el archivo
+    //                     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    //                     const chatId = msg.from.replace(/@c\.us|@g\.us/g, '');
+    //                     const messageId = msg.id._serialized.split('_')[0];
+    //                     const fileName = `${chatId}_${timestamp}_${messageId}.${extension}`;
                         
-                        // Rutas del archivo
-                        const relativePath = `${folder}/${fileName}`;
-                        const fullPath = path.join('/app/downloads', relativePath);
-                        const downloadUrl = `/download/${fileName}`;
+    //                     // Rutas del archivo
+    //                     const relativePath = `${folder}/${fileName}`;
+    //                     const fullPath = path.join('/app/downloads', relativePath);
+    //                     const downloadUrl = `/download/${fileName}`;
                         
-                        // Guardar archivo en el sistema
-                        await fs.writeFile(fullPath, media.data, 'base64');
+    //                     // Guardar archivo en el sistema
+    //                     await fs.writeFile(fullPath, media.data, 'base64');
                         
-                        // Calcular tamaño del archivo
-                        const fileSize = Buffer.from(media.data, 'base64').length;
+    //                     // Calcular tamaño del archivo
+    //                     const fileSize = Buffer.from(media.data, 'base64').length;
                         
-                        mediaInfo = {
-                            filename: fileName,
-                            originalFilename: media.filename || null,
-                            mimetype: media.mimetype || 'unknown',
-                            size: fileSize,
-                            extension: extension,
-                            relativePath: relativePath,
-                            fullPath: fullPath,
-                            downloadUrl: downloadUrl,
-                            downloadedAt: new Date(),
-                            downloadSuccess: true
-                        };
+    //                     mediaInfo = {
+    //                         filename: fileName,
+    //                         originalFilename: media.filename || null,
+    //                         mimetype: media.mimetype || 'unknown',
+    //                         size: fileSize,
+    //                         extension: extension,
+    //                         relativePath: relativePath,
+    //                         fullPath: fullPath,
+    //                         downloadUrl: downloadUrl,
+    //                         downloadedAt: new Date(),
+    //                         downloadSuccess: true
+    //                     };
                         
-                        console.log(`[MULTIMEDIA] ${msg.type} guardado: ${fileName} (${(fileSize / 1024).toFixed(2)} KB)`);
-                    }
+    //                     console.log(`[MULTIMEDIA] ${msg.type} guardado: ${fileName} (${(fileSize / 1024).toFixed(2)} KB)`);
+    //                 }
                     
-                } catch (mediaError) {
-                    console.error(`[MULTIMEDIA] Error descargando ${msg.type}:`, mediaError.message);
+    //             } catch (mediaError) {
+    //                 console.error(`[MULTIMEDIA] Error descargando ${msg.type}:`, mediaError.message);
                     
-                    // Guardar información del error
-                    mediaInfo = {
-                        filename: null,
-                        originalFilename: null,
-                        mimetype: null,
-                        size: null,
-                        extension: null,
-                        relativePath: null,
-                        fullPath: null,
-                        downloadUrl: null,
-                        downloadedAt: new Date(),
-                        downloadSuccess: false
-                    };
-                }
-            }
+    //                 // Guardar información del error
+    //                 mediaInfo = {
+    //                     filename: null,
+    //                     originalFilename: null,
+    //                     mimetype: null,
+    //                     size: null,
+    //                     extension: null,
+    //                     relativePath: null,
+    //                     fullPath: null,
+    //                     downloadUrl: null,
+    //                     downloadedAt: new Date(),
+    //                     downloadSuccess: false
+    //                 };
+    //             }
+    //         }
             
-            if (isMongoConnected) {
-                try {
-                    // Preparar datos del mensaje para MongoDB
-                    const messageData = {
-                        messageId: msg.id._serialized,
-                        chatId: msg.from,
-                        from: msg.from,
-                        author: msg.author || null,
-                        to: msg.to,
-                        body: msg.body || '', // Valor por defecto para mensajes sin texto
-                        type: msg.type || 'text',
-                        timestamp: new Date(msg.timestamp * 1000),
-                        fromMe: msg.fromMe,
-                        hasMedia: msg.hasMedia,
-                        isGroup: isGroupChat,
-                        chatName: chat.name,
-                        isForwarded: msg.isForwarded || false,
-                        isStatus: msg.isStatus || false,
-                        deviceType: msg.deviceType || null,
-                        // Agregar información de multimedia
-                        mediaInfo: mediaInfo
-                    };
+    //         if (isMongoConnected) {
+    //             try {
+    //                 // Preparar datos del mensaje para MongoDB
+    //                 const messageData = {
+    //                     messageId: msg.id._serialized,
+    //                     chatId: msg.from,
+    //                     from: msg.from,
+    //                     author: msg.author || null,
+    //                     to: msg.to,
+    //                     body: msg.body || '', // Valor por defecto para mensajes sin texto
+    //                     type: msg.type || 'text',
+    //                     timestamp: new Date(msg.timestamp * 1000),
+    //                     fromMe: msg.fromMe,
+    //                     hasMedia: msg.hasMedia,
+    //                     isGroup: isGroupChat,
+    //                     chatName: chat.name,
+    //                     isForwarded: msg.isForwarded || false,
+    //                     isStatus: msg.isStatus || false,
+    //                     deviceType: msg.deviceType || null,
+    //                     // Agregar información de multimedia
+    //                     mediaInfo: mediaInfo
+    //                 };
                     
-                    // Solo mostrar log para mensajes con contenido o media
-                    if (messageData.body || messageData.hasMedia) {
-                        const contentPreview = messageData.body ? 
-                            messageData.body.substring(0, 50) + (messageData.body.length > 50 ? '...' : '') :
-                            `[${messageData.type.toUpperCase()}]${mediaInfo?.filename ? ` - ${mediaInfo.filename}` : ''}`;
-                        console.log(`[DB] Guardando: ${chatType} - ${contentPreview}`);
-                    }
+    //                 // Solo mostrar log para mensajes con contenido o media
+    //                 if (messageData.body || messageData.hasMedia) {
+    //                     const contentPreview = messageData.body ? 
+    //                         messageData.body.substring(0, 50) + (messageData.body.length > 50 ? '...' : '') :
+    //                         `[${messageData.type.toUpperCase()}]${mediaInfo?.filename ? ` - ${mediaInfo.filename}` : ''}`;
+    //                     console.log(`[DB] Guardando: ${chatType} - ${contentPreview}`);
+    //                 }
                     
-                    // Guardar mensaje en MongoDB
-                    await whatsappDB.saveMessage(messageData);
+    //                 // Guardar mensaje en MongoDB
+    //                 await whatsappDB.saveMessage(messageData);
                     
-                    // Actualizar información del chat si es necesario
-                    const chatData = {
-                        chatId: chat.id._serialized,
-                        name: chat.name,
-                        isGroup: chat.isGroup,
-                        archived: chat.archived,
-                        pinned: chat.pinned,
-                        unreadCount: chat.unreadCount
-                    };
+    //                 // Actualizar información del chat si es necesario
+    //                 const chatData = {
+    //                     chatId: chat.id._serialized,
+    //                     name: chat.name,
+    //                     isGroup: chat.isGroup,
+    //                     archived: chat.archived,
+    //                     pinned: chat.pinned,
+    //                     unreadCount: chat.unreadCount
+    //                 };
                     
-                    await whatsappDB.saveOrUpdateChat(chatData);
+    //                 await whatsappDB.saveOrUpdateChat(chatData);
                     
-                } catch (dbError) {
-                    console.error('[DB] Error guardando mensaje:', dbError.message);
-                }
-            }
+    //             } catch (dbError) {
+    //                 console.error('[DB] Error guardando mensaje:', dbError.message);
+    //             }
+    //         }
             
-            // ================= RESPUESTA AUTOMÁTICA CON IA =================
+    //         // ================= RESPUESTA AUTOMÁTICA CON IA =================
             
-            // Solo responder si la IA está activada y el mensaje no es de nosotros
-            if (aiEnabled && !msg.fromMe) {
+    //         // Solo responder si la IA está activada y el mensaje no es de nosotros
+    //         if (aiEnabled && !msg.fromMe) {
                 
-                // Configurar diferentes comportamientos para grupos vs individuales
-                let shouldRespond = true;
+    //             // Configurar diferentes comportamientos para grupos vs individuales
+    //             let shouldRespond = true;
                 
-                if (isGroupChat) {
-                    // En grupos, solo responder si mencionan al bot o usan palabras clave
-                    const mentionKeywords = ['bot hablame']; //['bot', 'asistente', 'ayuda', 'help'];
-                    const messageText = msg.body.toLowerCase();
-                    shouldRespond = mentionKeywords.some(keyword => messageText.includes(keyword));
+    //             if (isGroupChat) {
+    //                 // En grupos, solo responder si mencionan al bot o usan palabras clave
+    //                 const mentionKeywords = ['bot hablame']; //['bot', 'asistente', 'ayuda', 'help'];
+    //                 const messageText = msg.body.toLowerCase();
+    //                 shouldRespond = mentionKeywords.some(keyword => messageText.includes(keyword));
                     
-                    console.log(`[GRUPO] ${shouldRespond ? 'Responderá' : 'No responderá'} (keywords: ${mentionKeywords.join(', ')})`);
-                }
+    //                 console.log(`[GRUPO] ${shouldRespond ? 'Responderá' : 'No responderá'} (keywords: ${mentionKeywords.join(', ')})`);
+    //             }
                 
-                if (shouldRespond) {
-                    // Obtener información del contacto (nombre si está disponible)
-                    const contact = await msg.getContact();
-                    const senderInfo = {
-                        name: contact.pushname || contact.name || null,
-                        number: msg.from,
-                        isGroup: isGroupChat,
-                        groupName: isGroupChat ? chat.name : null,
-                        author: msg.author || null // En grupos, quién envió el mensaje
-                    };
+    //             if (shouldRespond) {
+    //                 // Obtener información del contacto (nombre si está disponible)
+    //                 const contact = await msg.getContact();
+    //                 const senderInfo = {
+    //                     name: contact.pushname || contact.name || null,
+    //                     number: msg.from,
+    //                     isGroup: isGroupChat,
+    //                     groupName: isGroupChat ? chat.name : null,
+    //                     author: msg.author || null // En grupos, quién envió el mensaje
+    //                 };
                     
-                    // Generar respuesta con la IA
-                    const aiResponse = await aiBot.generateResponse(msg.body, senderInfo);
+    //                 // Generar respuesta con la IA
+    //                 const aiResponse = await aiBot.generateResponse(msg.body, senderInfo);
                     
-                    // Enviar respuesta automática
-                    await msg.reply(aiResponse);
+    //                 // Enviar respuesta automática
+    //                 await msg.reply(aiResponse);
                     
-                    console.log(`[${chatType}] Respuesta enviada a ${msg.from}: "${aiResponse}"`);
+    //                 console.log(`[${chatType}] Respuesta enviada a ${msg.from}: "${aiResponse}"`);
                     
-                    // ================= GUARDAR RESPUESTA IA EN MONGODB =================
+    //                 // ================= GUARDAR RESPUESTA IA EN MONGODB =================
                     
-                    if (isMongoConnected) {
-                        try {
-                            // Determinar palabras clave que activaron la respuesta (para grupos)
-                            const activatedKeywords = [];
-                            if (isGroupChat) {
-                                const mentionKeywords = ['bot hablame'];
-                                const messageText = msg.body.toLowerCase();
-                                activatedKeywords.push(...mentionKeywords.filter(keyword => messageText.includes(keyword)));
-                            }
+    //                 if (isMongoConnected) {
+    //                     try {
+    //                         // Determinar palabras clave que activaron la respuesta (para grupos)
+    //                         const activatedKeywords = [];
+    //                         if (isGroupChat) {
+    //                             const mentionKeywords = ['bot hablame'];
+    //                             const messageText = msg.body.toLowerCase();
+    //                             activatedKeywords.push(...mentionKeywords.filter(keyword => messageText.includes(keyword)));
+    //                         }
                             
-                            // Actualizar el mensaje original con información de la respuesta IA
-                            await whatsappDB.updateMessageWithAIResponse(msg.id._serialized, {
-                                responseText: aiResponse,
-                                keywords: activatedKeywords,
-                                category: isGroupChat ? 'group_triggered' : 'individual_auto'
-                            });
+    //                         // Actualizar el mensaje original con información de la respuesta IA
+    //                         await whatsappDB.updateMessageWithAIResponse(msg.id._serialized, {
+    //                             responseText: aiResponse,
+    //                             keywords: activatedKeywords,
+    //                             category: isGroupChat ? 'group_triggered' : 'individual_auto'
+    //                         });
                             
-                        } catch (dbError) {
-                            console.error('[DB] Error actualizando respuesta IA:', dbError.message);
-                        }
-                    }
-                }
-            }
+    //                     } catch (dbError) {
+    //                         console.error('[DB] Error actualizando respuesta IA:', dbError.message);
+    //                     }
+    //                 }
+    //             }
+    //         }
             
-        } catch (error) {
-            console.error('Error procesando mensaje:', error);
-        }
-    });
+    //     } catch (error) {
+    //         console.error('Error procesando mensaje:', error);
+    //     }
+    // });
 
     // Inicializar el cliente y manejar errores
     whatsappClient.initialize().catch(error => {
@@ -1102,7 +1106,9 @@ app.get('/', (req, res) => {
 // ================= INICIALIZACIÓN =================
 
 // Función de inicialización asíncrona
-const initializeApp = async () => { 
+const initializeApp = async () => {
+    console.log('Iniciando WhatsApp API con MongoDB...');
+    
     // 1. Inicializar MongoDB primero
     await initializeMongoDB();
     
@@ -1111,7 +1117,10 @@ const initializeApp = async () => {
     
     // 3. Iniciar servidor HTTP
     app.listen(PORT, '0.0.0.0', () => {
-        console.log('WhatsApp API con MongoDB Iniciado /////');
+        console.log(`API de WhatsApp con IA corriendo en http://localhost:${PORT}`);
+        console.log(`IA automática: ${aiEnabled ? 'ACTIVADA' : 'DESACTIVADA'}`);
+        console.log(`MongoDB: ${isMongoConnected ? 'CONECTADO' : 'DESCONECTADO'}`);
+        console.log(`Documentación: http://localhost:${PORT}`);
     });
 };
 

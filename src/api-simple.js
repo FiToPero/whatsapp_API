@@ -31,19 +31,19 @@ const aiBot = new SimpleAI();
 // ================= INICIALIZACIÓN MONGODB =================
 const initializeMongoDB = async () => {
     try {
-        console.log('🔄 Conectando a MongoDB...');
+        console.log('Conectando a MongoDB...');
         await mongoConnection.connect();
         isMongoConnected = true;
-        console.log('✅ MongoDB conectado');
+        console.log('MongoDB conectado');
     } catch (error) {
-        console.error('❌ Error MongoDB:', error.message);
+        console.error('Error MongoDB:', error.message);
         isMongoConnected = false;
     }
 };
 
 // ================= INICIALIZACIÓN WHATSAPP =================
 const initializeWhatsApp = () => {
-    console.log('🔄 Inicializando WhatsApp...');
+    console.log('Inicializando WhatsApp...');
     
     whatsappClient = new Client({
         authStrategy: new LocalAuth({
@@ -65,20 +65,20 @@ const initializeWhatsApp = () => {
 
     // Eventos
     whatsappClient.on('qr', qr => {
-        console.log('📱 Código QR generado');
+        console.log('Código QR generado');
     });
 
     whatsappClient.on('ready', () => {
-        console.log('🚀 WhatsApp listo');
+        console.log('WhatsApp listo');
         isClientReady = true;
     });
 
     whatsappClient.on('authenticated', () => {
-        console.log('✅ WhatsApp autenticado');
+        console.log('WhatsApp autenticado');
     });
 
     whatsappClient.on('auth_failure', msg => {
-        console.error('❌ Error autenticación:', msg);
+        console.error('Error autenticación:', msg);
         isClientReady = false;
     });
 
@@ -109,7 +109,7 @@ const initializeWhatsApp = () => {
                     
                     await whatsappDB.saveMessage(messageData);
                 } catch (dbError) {
-                    console.error('❌ Error DB:', dbError.message);
+                    console.error('Error DB:', dbError.message);
                 }
             }
             
@@ -133,18 +133,18 @@ const initializeWhatsApp = () => {
                     
                     const aiResponse = await aiBot.generateResponse(msg.body, senderInfo);
                     await msg.reply(aiResponse);
-                    
-                    console.log(`🤖 Respuesta enviada a ${chat.name}`);
+
+                    console.log(`Respuesta enviada a ${chat.name}`);
                 }
             }
             
         } catch (error) {
-            console.error('❌ Error procesando mensaje:', error.message);
+            console.error('Error procesando mensaje:', error.message);
         }
     });
 
     whatsappClient.initialize().catch(error => {
-        console.error('❌ Error inicializando WhatsApp:', error);
+        console.error('Error inicializando WhatsApp:', error);
     });
 };
 
@@ -300,7 +300,7 @@ app.get('/', (req, res) => {
 
 // ================= INICIO =================
 const startApp = async () => {
-    console.log('🚀 Iniciando WhatsApp API con MongoDB...');
+    console.log('Iniciando WhatsApp API con MongoDB...');
     
     // 1. MongoDB
     await initializeMongoDB();
@@ -310,14 +310,14 @@ const startApp = async () => {
     
     // 3. Servidor
     app.listen(PORT, '0.0.0.0', () => {
-        console.log(`🌐 Servidor en http://localhost:${PORT}`);
-        console.log(`🤖 IA: ${aiEnabled ? 'ACTIVADA' : 'DESACTIVADA'}`);
-        console.log(`💾 MongoDB: ${isMongoConnected ? 'CONECTADO' : 'DESCONECTADO'}`);
+        console.log(`Servidor en http://localhost:${PORT}`);
+        console.log(`IA: ${aiEnabled ? 'ACTIVADA' : 'DESACTIVADA'}`);
+        console.log(`MongoDB: ${isMongoConnected ? 'CONECTADO' : 'DESCONECTADO'}`);
     });
 };
 
 startApp().catch(error => {
-    console.error('💥 Error crítico:', error);
+    console.error('Error crítico:', error);
     process.exit(1);
 });
 
