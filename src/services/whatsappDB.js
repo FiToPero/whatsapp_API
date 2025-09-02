@@ -7,42 +7,17 @@ class WhatsAppDBService {
     
     async saveOrUpdateChat(chatData) {
         try {
-            const {
-                chatId,
-                name,
-                isGroup,
-                archived = false,
-                pinned = false,
-                unreadCount = 0,
-                groupMetadata = null
-            } = chatData;
+            const { chatId, name, isGroup, unreadCount = 0, groupMetadata = null } = chatData;
 
-            const chatInfo = {
-                chatId,
-                name,
-                isGroup,
-                type: isGroup ? 'group' : 'individual',
-                archived,
-                pinned,
-                unreadCount
-            };
+            const chatInfo = { chatId, name, isGroup, unreadCount };
 
             if (isGroup && groupMetadata) {
                 chatInfo.groupMetadata = groupMetadata;
             }
 
             const chat = await Chat.findOneAndUpdate(
-                { chatId },
-                chatInfo,
-                { 
-                    upsert: true, 
-                    new: true,
-                    setDefaultsOnInsert: true
-                }
+                { chatId }, chatInfo, { upsert: true, new: true, setDefaultsOnInsert: true }
             );
-
-            // Log silencioso para no saturar la consola
-            // console.log(`[DB] Chat guardado: ${name} (${isGroup ? 'Grupo' : 'Individual'})`);
             return chat;
 
         } catch (error) {
@@ -60,36 +35,76 @@ class WhatsAppDBService {
         }
     }
 
-    async getAllChats(filters = {}) {
+    async getAllChats() {
         try {
-            const { isGroup, limit = 100, skip = 0 } = filters;
-            
-            const query = {};
-            if (typeof isGroup === 'boolean') {
-                query.isGroup = isGroup;
-            }
-
-            const chats = await Chat.find(query)
-                .sort({ 'stats.lastMessageAt': -1 })
-                .limit(limit)
-                .skip(skip);
-
-            return chats;
+            return await Chat.all();
         } catch (error) {
             console.error('[DB] Error obteniendo chats:', error);
             throw error;
         }
     }
 
+    // ===== VERIFICACIÓN DE EXISTENCIA =====
+    
+    /**
+     * Verifica si un mensaje ya existe en la base de datos
+     * @param {string} messageId - ID único del mensaje
+     * @returns {boolean} true si el mensaje existe
+     */
+    async messageExists(messageId) {
+        try {
+            const message = await Message.findOne({ messageId }).select('messageId').lean();
+            return !!message;
+        } catch (error) {
+            console.error('[DB] Error verificando existencia del mensaje:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Verifica si un mensaje tiene multimedia ya procesada
+     * @param {string} messageId - ID único del mensaje
+     * @returns {boolean} true si tiene multimedia procesada
+     */
+    async messageHasProcessedMedia(messageId) {
+        try {
+            const message = await Message.findOne({ 
+                messageId, 
+                'mediaInfo.downloadSuccess': true 
+            }).select('messageId mediaInfo').lean();
+            return !!message;
+        } catch (error) {
+            console.error('[DB] Error verificando multimedia del mensaje:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Verifica qué mensajes de una lista ya existen en la base de datos
+     * @param {Array} messageIds - Array de IDs de mensajes
+     * @returns {Array} Array de IDs que ya existen
+     */
+    async getExistingMessageIds(messageIds) {
+        try {
+            const existingMessages = await Message.find({ 
+                messageId: { $in: messageIds } 
+            }).select('messageId').lean();
+            
+            return existingMessages.map(msg => msg.messageId);
+        } catch (error) {
+            console.error('[DB] Error verificando mensajes existentes:', error);
+            return [];
+        }
+    }
+
     // ===== GESTIÓN DE MENSAJES =====
 
-    async saveMessage(messageData) {
+    async findOneAndUpdate(messageData) {
         try {
             const {
                 messageId,
                 chatId,
                 from,
-                author,
                 to,
                 body,
                 type = 'text',
@@ -97,18 +112,15 @@ class WhatsAppDBService {
                 fromMe,
                 hasMedia = false,
                 isGroup,
+                author,
                 chatName,
-                isForwarded = false,
-                isStatus = false,
-                deviceType,
-                aiResponse = null
+                mediaInfo
             } = messageData;
 
-            const message = new Message({
+            const message = {
                 messageId,
                 chatId,
                 from,
-                author,
                 to,
                 body,
                 type,
@@ -116,20 +128,13 @@ class WhatsAppDBService {
                 fromMe,
                 hasMedia,
                 isGroup,
+                author,
                 chatName,
-                isForwarded,
-                isStatus,
-                deviceType,
-                aiResponse
-            });
+                mediaInfo
+            };
 
-            await message.save();
+            await Message.findOneAndUpdate({ messageId: message.messageId }, message, { upsert: true, new: true, setDefaultsOnInsert: true });
 
-            // Actualizar estadísticas del chat
-            await this.updateChatStats(chatId, timestamp);
-
-            // Solo mostrar log detallado para depuración si es necesario
-            // console.log(`[DB] Mensaje guardado: ${chatName} - ${body.substring(0, 50)}${body.length > 50 ? '...' : ''}`);
             return message;
 
         } catch (error) {
@@ -138,66 +143,9 @@ class WhatsAppDBService {
         }
     }
 
-    async updateMessageWithAIResponse(messageId, aiResponseData) {
+    async getChatMessages(chatId) {
         try {
-            const updatedMessage = await Message.findOneAndUpdate(
-                { messageId },
-                { 
-                    $set: { 
-                        'aiResponse': {
-                            generated: true,
-                            responseText: aiResponseData.responseText,
-                            responseTimestamp: new Date(),
-                            keywords: aiResponseData.keywords || [],
-                            category: aiResponseData.category || 'general'
-                        }
-                    }
-                },
-                { new: true }
-            );
-
-            if (updatedMessage) {
-                console.log(`[DB] Respuesta IA actualizada para mensaje: ${messageId}`);
-            }
-
-            return updatedMessage;
-        } catch (error) {
-            console.error('[DB] Error actualizando respuesta IA:', error);
-            throw error;
-        }
-    }
-
-    async getChatMessages(chatId, options = {}) {
-        try {
-            const {
-                limit = 50,
-                skip = 0,
-                fromDate,
-                toDate,
-                fromMe,
-                includeAI = true
-            } = options;
-
-            const query = { chatId };
-
-            if (fromDate || toDate) {
-                query.timestamp = {};
-                if (fromDate) query.timestamp.$gte = new Date(fromDate);
-                if (toDate) query.timestamp.$lte = new Date(toDate);
-            }
-
-            if (typeof fromMe === 'boolean') {
-                query.fromMe = fromMe;
-            }
-
-            if (!includeAI) {
-                query['aiResponse.generated'] = { $ne: true };
-            }
-
-            const messages = await Message.find(query)
-                .sort({ timestamp: -1 })
-                .limit(limit)
-                .skip(skip);
+            const messages = await Message.find(chatId).limit(10)
 
             return messages;
         } catch (error) {
@@ -206,109 +154,14 @@ class WhatsAppDBService {
         }
     }
 
-    async searchMessages(searchTerm, options = {}) {
-        try {
-            return await Message.searchMessages(searchTerm, options);
-        } catch (error) {
-            console.error('[DB] Error buscando mensajes:', error);
-            throw error;
-        }
-    }
-
-    // ===== ESTADÍSTICAS =====
-
-    async updateChatStats(chatId, messageTimestamp) {
-        try {
-            const chat = await Chat.findOne({ chatId });
-            
-            if (chat) {
-                const updateData = {
-                    $inc: { 'stats.totalMessages': 1 },
-                    $set: { 'stats.lastMessageAt': messageTimestamp }
-                };
-
-                // Si es el primer mensaje, establecer firstMessageAt
-                if (!chat.stats?.firstMessageAt) {
-                    updateData.$set['stats.firstMessageAt'] = messageTimestamp;
-                }
-
-                await Chat.findOneAndUpdate({ chatId }, updateData);
-            }
-        } catch (error) {
-            console.error('[DB] Error actualizando estadísticas:', error);
-        }
-    }
-
-    async getChatStats(chatId) {
-        try {
-            const chat = await Chat.findOne({ chatId });
-            if (!chat) return null;
-
-            const dbStats = await Chat.getStats(chatId);
-            
-            return {
-                chatInfo: {
-                    name: chat.name,
-                    isGroup: chat.isGroup,
-                    type: chat.type
-                },
-                stats: dbStats
-            };
-        } catch (error) {
-            console.error('[DB] Error obteniendo estadísticas:', error);
-            throw error;
-        }
-    }
-
-    async getGlobalStats() {
-        try {
-            const totalChats = await Chat.countDocuments();
-            const totalGroups = await Chat.countDocuments({ isGroup: true });
-            const totalIndividuals = await Chat.countDocuments({ isGroup: false });
-            const totalMessages = await Message.countDocuments();
-            const totalAIResponses = await Message.countDocuments({ 'aiResponse.generated': true });
-
-            const recentMessages = await Message.find()
-                .sort({ timestamp: -1 })
-                .limit(1);
-
-            return {
-                chats: {
-                    total: totalChats,
-                    groups: totalGroups,
-                    individuals: totalIndividuals
-                },
-                messages: {
-                    total: totalMessages,
-                    aiResponses: totalAIResponses,
-                    lastMessageAt: recentMessages[0]?.timestamp || null
-                }
-            };
-        } catch (error) {
-            console.error('[DB] Error obteniendo estadísticas globales:', error);
-            throw error;
-        }
-    }
-
-    // ===== UTILIDADES =====
-
-    async cleanOldMessages(daysOld = 30) {
-        try {
-            const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-
-            const result = await Message.deleteMany({
-                timestamp: { $lt: cutoffDate },
-                'aiResponse.generated': { $ne: true } // Mantener mensajes con respuesta IA
-            });
-
-            console.log(`[DB] Limpieza: ${result.deletedCount} mensajes antiguos eliminados`);
-            return result.deletedCount;
-        } catch (error) {
-            console.error('[DB] Error en limpieza:', error);
-            throw error;
-        }
-    }
+    // async searchMessages(searchTerm, options = {}) {
+    //     try {
+    //         return await Message.search(searchTerm, options);
+    //     } catch (error) {
+    //         console.error('[DB] Error buscando mensajes:', error);
+    //         throw error;
+    //     }
+    // }
 }
 
 module.exports = new WhatsAppDBService();

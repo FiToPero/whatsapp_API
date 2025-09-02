@@ -13,22 +13,7 @@ services:
     networks:
       - project
     depends_on:
-      - mysql
       - mongodb
-  mysql:
-    image: 'mysql/mysql-server:8.0'
-    ports:
-      - '3306:${DB_PORT}'
-    environment:
-        MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
-        MYSQL_ROOT_HOST: '%'
-        MYSQL_DATABASE: '${DB_DATABASE}'
-        MYSQL_USER: '${DB_USERNAME}'
-        MYSQL_PASSWORD: '${DB_PASSWORD}'
-    volumes:
-      - 'data_mysql:/var/lib/mysql'
-    networks:
-      - project
   mongodb:
     image: 'mongo'
     environment:
@@ -44,8 +29,6 @@ networks:
   project:
     driver: bridge
 volumes:
-  data_mysql:
-    driver: local
   data_mongodb:
     driver: local
 

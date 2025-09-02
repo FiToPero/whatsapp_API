@@ -31,16 +31,12 @@ class MongoConnection {
 
     async connect() {
         try {
-            console.log('[MongoDB] Intentando conectar...');
-            console.log(`[MongoDB] URI: ${MONGO_CONFIG.host}:${MONGO_CONFIG.port}/${MONGO_CONFIG.database}`);
-
             await mongoose.connect(MONGO_URI, mongooseOptions);
             
             this.isConnected = true;
             this.connectionAttempts = 0;
 
             console.log('[MongoDB] Conectado exitosamente');
-            console.log(`[MongoDB] Base de datos: ${MONGO_CONFIG.database}`);
 
             return true;
             
@@ -86,19 +82,6 @@ class MongoConnection {
         };
     }
 }
-
-// ===== EVENTOS DE MONGOOSE =====
-mongoose.connection.on('connected', () => {
-    console.log('[MongoDB] Mongoose conectado');
-});
-
-mongoose.connection.on('error', (err) => {
-    console.error('[MongoDB] Error de Mongoose:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-    console.log('[MongoDB] Mongoose desconectado');
-});
 
 // Manejar cierre graceful
 process.on('SIGINT', async () => {

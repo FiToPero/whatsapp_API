@@ -1,71 +1,28 @@
-// ================================================================
-// WHATSAPP API - DOCUMENTACIÓN COMPLETA
-// ================================================================
-// Esta API permite enviar y recibir mensajes de WhatsApp a través
-// de endpoints HTTP REST usando whatsapp-web.js y Express.js
-// ================================================================
-
-// ================= IMPORTACIÓN DE MÓDULOS =================
-
-// Express: Framework web para Node.js que permite crear servidores HTTP
 const express = require('express');
-
-// CORS: Middleware que permite Cross-Origin Resource Sharing
-// Permite que la API sea accesible desde otros dominios/puertos
 const cors = require('cors');
-
-// Variables de entorno
-require('dotenv').config();
-
-// Módulos para manejo de archivos
+const qrcode = require('qrcode-terminal');
 const fs = require('fs').promises;
 const path = require('path');
-
-// WhatsApp Web.js: Biblioteca que conecta con WhatsApp Web
-// Client: Clase principal para manejar la conexión
-// LocalAuth: Estrategia de autenticación que guarda la sesión localmente
 const { Client, LocalAuth } = require('whatsapp-web.js');
-
-// IA Simple: Asistente virtual para respuestas automáticas
 const SimpleAI = require('./ai/OpenAI.js');
-
-// Base de datos MongoDB
 const { mongoConnection } = require('./database/mongodb');
 const whatsappDB = require('./services/whatsappDB');
 
+require('dotenv').config();
+
 // ================= INICIALIZACIÓN DE VARIABLES =================
-
-// Crear instancia de la aplicación Express
 const app = express();
-
-// Puerto donde correrá el servidor (3000 es el puerto estándar para desarrollo)
 const PORT = process.env.PORT || 3000;
-
-// Variable global para almacenar la instancia del cliente de WhatsApp
-// null significa que aún no se ha inicializado
 let whatsappClient = null;
-
-// Variable de estado que indica si WhatsApp está conectado y listo
-// false por defecto hasta que se complete la autenticación
 let isClientReady = false;
-
-// Variable de estado para MongoDB
 let isMongoConnected = false;
 
 // Instancia de la IA para respuestas automáticas
 const aiBot = new SimpleAI();
-
-// Variable para controlar si la IA está activada
 let aiEnabled = true;
 
 // ================= CONFIGURACIÓN DE MIDDLEWARES =================
-
-// CORS: Habilita el acceso desde cualquier origen (*)
-// Permite que aplicaciones web desde otros dominios usen esta API
 app.use(cors());
-
-// JSON Parser: Middleware que convierte el cuerpo de las peticiones HTTP
-// de formato JSON a objetos JavaScript accesibles via req.body
 app.use(express.json());
 
 // ================= FUNCIÓN DE INICIALIZACIÓN DE MONGODB =================
@@ -74,7 +31,7 @@ const initializeMongoDB = async () => {
     try {
         await mongoConnection.connect();
         isMongoConnected = true;
-        console.log('MongoDB conectado exitosamente');
+        console.log('MongoDB conectado exitosamente 002');
     } catch (error) {
         console.error('Error conectando a MongoDB:', error.message);
         isMongoConnected = false;
@@ -83,39 +40,32 @@ const initializeMongoDB = async () => {
 
 // ================= FUNCIÓN DE INICIALIZACIÓN DE WHATSAPP =================
 
-const initializeWhatsApp = () => {
-    // Log de inicio del proceso de inicialización
+const initializeWhatsApp = async () => {
     console.log('Inicializando cliente de WhatsApp para API...');
     
     // Crear nueva instancia del cliente de WhatsApp
-    whatsappClient = new Client({
-        // Estrategia de autenticación local
+    whatsappClient = new Client({  
         authStrategy: new LocalAuth({
-            // Ruta donde se guardarán los datos de autenticación
-            // Esto permite que la sesión persista entre reinicios
-            dataPath: '/app/.wwebjs_auth'
+            dataPath: '/app/.wwebjs_auth',
+            clientId: 'client-API_js'
         }),
         
-        // Configuración de Puppeteer (controla el navegador Chrome)
         puppeteer: {
-            // Modo headless: ejecuta Chrome sin interfaz gráfica
             headless: true,
-            
-            // Argumentos específicos para Chrome en Docker
             args: [
-                '--no-sandbox',                    // Desactiva sandbox de seguridad (necesario en Docker)
-                '--disable-setuid-sandbox',        // Desactiva sandbox setuid
-                '--disable-dev-shm-usage',         // Usa /tmp en lugar de /dev/shm (evita problemas de memoria)
-                '--disable-accelerated-2d-canvas', // Desactiva aceleración de canvas 2D
-                '--no-first-run',                  // Evita el wizard de primera ejecución
-                '--no-zygote',                     // Desactiva proceso zygote
-                '--disable-gpu',                   // Desactiva GPU (no disponible en headless)
-                '--disable-background-timer-throttling',     // Evita throttling de timers
-                '--disable-backgrounding-occluded-windows',  // Evita optimizaciones de ventanas ocultas
-                '--disable-renderer-backgrounding',          // Evita backgrounding del renderer
-                '--disable-web-security',          // Desactiva seguridad web (solo para desarrollo)
-                '--disable-features=TranslateUI',  // Desactiva interfaz de traducción
-                '--disable-ipc-flooding-protection' // Desactiva protección de flooding IPC
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-gpu',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+                '--disable-web-security',
+                '--disable-features=TranslateUI',
+                '--disable-ipc-flooding-protection'
             ]
         }
     });
@@ -124,70 +74,76 @@ const initializeWhatsApp = () => {
 
     // Evento: Se genera un código QR para autenticación
     whatsappClient.on('qr', qr => {
-        // Imprime el código QR como texto (para debug, no se ve como QR visual)
-        console.log(qr);
+        // Mostrar QR code visual en la terminal
+        qrcode.generate(qr, { small: true });
+        console.log('⏳ Esperando que escanees el código...');
     });
 
     // Evento: Cliente listo para usar (autenticado y conectado)
-    whatsappClient.on('ready', async () => {
+    whatsappClient.on('ready', () => {
         console.log('¡Cliente de WhatsApp API listo!');
         isClientReady = true;
         
         // Sincronizar chats con MongoDB si está conectado (sin bloquear)
-        if (isMongoConnected) {            
-            // Ejecutar sincronización en background
-            setTimeout(async () => {
-                try {
-                    const chats = await whatsappClient.getChats();
-                    console.log(`Sincronizando ${chats.length} chats con MongoDB...`);
+        // if (isMongoConnected) {            
+        //     setTimeout(async () => {
+        //         try {
+        //             const chats = await whatsappClient.getChats();
+        //             console.log(`Sincronizando ${chats.length} chats con MongoDB...`);
                     
-                    let syncCount = 0;
-                    for (const chat of chats) {
-                        try {
-                            const chatData = {
-                                chatId: chat.id._serialized,
-                                name: chat.name,
-                                isGroup: chat.isGroup,
-                                archived: chat.archived,
-                                pinned: chat.pinned,
-                                unreadCount: chat.unreadCount
-                            };
+        //             let syncCount = 0;
+        //             for (const chat of chats) {
+        //                 try {
+        //                     const chatData = {
+        //                         chatId: chat.id._serialized,
+        //                         name: chat.name,
+        //                         isGroup: chat.isGroup,
+        //                         archived: chat.archived,
+        //                         pinned: chat.pinned,
+        //                         unreadCount: chat.unreadCount
+        //                     };
                             
-                            // Agregar información de grupo si aplica
-                            if (chat.isGroup && chat.groupMetadata) {
-                                chatData.groupMetadata = {
-                                    creation: chat.groupMetadata.creation,
-                                    owner: chat.groupMetadata.owner?._serialized,
-                                    description: chat.groupMetadata.desc,
-                                    descriptionOwner: chat.groupMetadata.descOwner?._serialized,
-                                    descriptionTime: chat.groupMetadata.descTime,
-                                    participantsCount: chat.participants?.length || 0,
-                                    participants: chat.participants?.map(p => ({
-                                        id: p.id._serialized,
-                                        isAdmin: p.isAdmin,
-                                        isSuperAdmin: p.isSuperAdmin
-                                    })) || []
-                                };
-                            }
+        //                     // Agregar información de grupo si aplica
+        //                     if (chat.isGroup && chat.groupMetadata) {
+        //                         chatData.groupMetadata = {
+        //                             creation: chat.groupMetadata.creation,
+        //                             owner: chat.groupMetadata.owner?._serialized,
+        //                             description: chat.groupMetadata.desc,
+        //                             descriptionOwner: chat.groupMetadata.descOwner?._serialized,
+        //                             descriptionTime: chat.groupMetadata.descTime,
+        //                             participantsCount: chat.participants?.length || 0,
+        //                             participants: chat.participants?.map(p => ({
+        //                                 id: p.id._serialized,
+        //                                 isAdmin: p.isAdmin,
+        //                                 isSuperAdmin: p.isSuperAdmin
+        //                             })) || []
+        //                         };
+        //                     }
                             
-                            await whatsappDB.saveOrUpdateChat(chatData);
-                            syncCount++;
-                        } catch (chatError) {
-                            console.error(`Error sincronizando chat ${chat.name}:`, chatError.message);
-                        }
-                    }
+        //                     await whatsappDB.saveOrUpdateChat(chatData);
+        //                     syncCount++;
+        //                 } catch (chatError) {
+        //                     console.error(`Error sincronizando chat ${chat.name}:`, chatError.message);
+        //                 }
+        //             }
                     
-                    console.log(`${syncCount} chats sincronizados con MongoDB`);
-                } catch (error) {
-                    console.error('Error en sincronización de chats:', error.message);
-                }
-            }, 2000); // Esperar 2 segundos antes de sincronizar
-        }
+        //             console.log(`${syncCount} chats sincronizados con MongoDB`);
+        //         } catch (error) {
+        //             console.error('Error en sincronización de chats:', error.message);
+        //         }
+        //     }, 2000); // Esperar 2 segundos antes de sincronizar
+        // }
     });
 
     // Evento: Autenticación exitosa
     whatsappClient.on('authenticated', () => {
-        console.log('Cliente autenticado correctamente');
+        console.log('');
+        console.log('✅ Cliente autenticado correctamente');
+    });
+    
+    // Evento: Cuando la sesión se guarda
+    whatsappClient.on('auth_success', () => {
+        console.log('💾 Sesión de autenticación guardada exitosamente');
     });
 
     // Evento: Error de autenticación
@@ -199,20 +155,26 @@ const initializeWhatsApp = () => {
 
     // Evento: Cliente desconectado
     whatsappClient.on('disconnected', (reason) => {
-        console.log('Cliente desconectado:', reason);
+        console.log('');
+        console.log('⚠️  CLIENTE DESCONECTADO');
+        console.log('📋 Razón:', reason);
+  
+        
         // Marcar como no conectado
         isClientReady = false;
+        
+        // Si la desconexión fue por LOGOUT, limpiar autenticación
+        if (reason === 'LOGOUT') {
+            console.log('🧹 Limpiando sesión debido a LOGOUT...');
+
+            /////////////////////////////////////////////
+        }
     });
 
     // Evento: Mensaje recibido
     whatsappClient.on('message', async msg => {
         try {
             // ================= IDENTIFICAR TIPO DE CHAT =================
-            
-            // Método 1: Verificar por el formato del ID
-            const isFromGroup = msg.from.endsWith('@g.us');
-            
-            // Método 2: Obtener información del chat (más confiable)
             const chat = await msg.getChat();
             const isGroupChat = chat.isGroup;
             
@@ -442,9 +404,8 @@ const initializeWhatsApp = () => {
         }
     });
 
-    // Inicializar el cliente y manejar errores
     whatsappClient.initialize().catch(error => {
-        console.error('Error inicializando cliente:', error);
+        console.error('❌ Error inicializando cliente:', error);
     });
 };
 
@@ -1111,7 +1072,7 @@ const initializeApp = async () => {
     
     // 3. Iniciar servidor HTTP
     app.listen(PORT, '0.0.0.0', () => {
-        console.log('WhatsApp API con MongoDB Iniciado /////');
+        console.log('WhatsApp API con MongoDB Iniciado ///// LISTENING');
     });
 };
 
