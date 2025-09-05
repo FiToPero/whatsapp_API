@@ -134,20 +134,33 @@ class WhatsAppDBService {
             };
 
             await Message.findOneAndUpdate({ messageId: message.messageId }, message, { upsert: true, new: true, setDefaultsOnInsert: true });
-
+            console.log(`[DB] Mensaje ${message.messageId} guardado/actualizado`);
             return message;
-
         } catch (error) {
             console.error('[DB] Error guardando mensaje:', error);
             throw error;
         }
     }
 
-    async getChatMessages(chatId) {
+    async getChatMessages(chatId, limit = 10) {
         try {
-            const messages = await Message.find(chatId).limit(10)
+            if (!chatId || typeof chatId !== 'string') {
+            throw new Error('chatId debe ser un string válido');
+        }
 
-            return messages;
+        const messages = await Message.find({ 
+            chatId: chatId,
+            fromMe: false
+            })
+            .sort({ timestamp: -1 })  
+            .limit(parseInt(limit))   
+            .lean();           
+                   
+            // Invertir el orden para cronológico
+            const chronologicalMessages = messages.reverse();
+
+            console.log(`[DB] Obtenidos ${messages.length} mensajes del chat ${chatId}`);
+            return chronologicalMessages;
         } catch (error) {
             console.error('[DB] Error obteniendo mensajes:', error);
             throw error;
